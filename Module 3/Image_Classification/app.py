@@ -6,10 +6,19 @@ from PIL import Image
 import os
 import uvicorn
 from pathlib import Path
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 
 BASE_DIR = Path(__file__).resolve().parent
+ROOT_DIR = BASE_DIR.parent
+
+app.mount("/static", StaticFiles(directory=str(ROOT_DIR)), name="static")
+
+@app.get("/")
+async def dashboard():
+    return FileResponse(ROOT_DIR / "Cyclone Dashboard.html")
 
 print("Current folder:", BASE_DIR)
 print("Files here:", os.listdir(BASE_DIR))
