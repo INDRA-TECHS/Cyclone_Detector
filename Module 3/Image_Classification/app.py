@@ -3,6 +3,8 @@ from test import load_trained_model, get_transforms
 import torch
 import io
 from PIL import Image
+import os
+import uvicorn
 
 app = FastAPI()
 
@@ -28,3 +30,6 @@ async def predict(file: UploadFile = File(...)):
         "prediction": class_names[predicted_idx],
         "confidence": float(probabilities[predicted_idx])
     }
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
