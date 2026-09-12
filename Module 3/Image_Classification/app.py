@@ -5,8 +5,14 @@ import io
 from PIL import Image
 import os
 import uvicorn
+from pathlib import Path
 
 app = FastAPI()
+
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_PATH = BASE_DIR / "Cyclone_resnet18_best.pth"
+
+model, class_names, device = load_trained_model(str(MODEL_PATH))
 
 # Load model once at server startup
 model, class_names, device = load_trained_model("Cyclone_resnet18_best.pth")
