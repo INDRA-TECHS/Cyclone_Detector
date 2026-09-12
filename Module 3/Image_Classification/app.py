@@ -11,7 +11,7 @@ app = FastAPI()
 
 # Correct model path
 BASE_DIR = Path(__file__).resolve().parent
-MODEL_PATH = BASE_DIR / "Cyclone_resnet18_best.pth"
+MODEL_PATH = BASE_DIR / "cyclone_resnet18_best.pth"
 
 # Load model ONCE
 model, class_names, device = load_trained_model(str(MODEL_PATH))
