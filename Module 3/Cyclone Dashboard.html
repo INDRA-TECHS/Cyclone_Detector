@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cyclone Prediction Console</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#060B14;
+    --panel:#0D1826;
+    --panel-2:#101E30;
+    --line:#1B3145;
+    --cyan:#29D9E0;
+    --cyan-dim:#1A7A80;
+    --amber:#FF9F40;
+    --red:#FF4757;
+    --text:#E7F1F5;
+    --muted:#6B8A9A;
+    --radius:2px;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Space Grotesk',sans-serif;
+    min-height:100vh;
+  }
+  .mono{font-family:'JetBrains Mono',monospace;}
+
+  a{color:var(--cyan);}
+
+  /* ---------- Layout shell ---------- */
+  .shell{
+    display:grid;
+    grid-template-rows:auto 1fr auto;
+    min-height:100vh;
+  }
+
+  header.topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:14px 24px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#0A1420,#060B14);
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand .dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--cyan);
+    box-shadow:0 0 8px var(--cyan);
+    animation:pulse 2.2s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion:reduce){ .brand .dot{animation:none;} }
+  @keyframes pulse{
+    0%,100%{opacity:1;}
+    50%{opacity:.35;}
+  }
+  .brand h1{font-size:16px;font-weight:600;letter-spacing:.02em;margin:0;}
+  .brand p{margin:0;color:var(--muted);font-size:12px;}
+
+  .topbar-right{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+  .clock{font-size:13px;color:var(--cyan);}
+  .api-config{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+  .api-config input{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    padding:6px 8px;
+    border-radius:var(--radius);
+    width:230px;
+  }
+  .api-config input:focus{outline:2px solid var(--cyan);outline-offset:1px;}
+  .conn-status{display:flex;align-items:center;gap:6px;font-size:12px;}
+  .conn-status .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
+  .conn-status.ok .dot{background:var(--cyan);}
+  .conn-status.bad .dot{background:var(--red);}
+
+  /* ---------- Grid ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns:340px 1fr 360px;
+    gap:1px;
+    background:var(--line);
+    flex:1;
+  }
+  @media (max-width:1100px){
+    .grid{grid-template-columns:1fr;}
+  }
+
+  .col{background:var(--bg);display:flex;flex-direction:column;gap:1px;}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    margin:10px;
+    position:relative;
+    padding:16px;
+  }
+  .panel::before, .panel::after{
+    content:"";
+    position:absolute;
+    width:100px;height:10px;
+    border-color:var(--cyan-dim);
+    opacity:.7;
+  }
+  .panel::before{top:-1px;left:-1px;border-top:2px solid;border-left:2px solid;}
+  .panel::after{bottom:-1px;right:-1px;border-bottom:2px solid;border-right:2px solid;}
+
+  .panel h2{
+    font-size:12px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin:0 0 12px 0;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+
+  /* ---------- Buttons / inputs ---------- */
+  button{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    border-radius:var(--radius);
+    border:1px solid var(--line);
+    background:var(--panel-2);
+    color:var(--text);
+    padding:9px 14px;
+    transition:border-color .15s ease;
+  }
+  button:hover{border-color:var(--cyan-dim);}
+  button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;}
+  button.primary{
+    background:var(--cyan);
+    color:#04181A;
+    border-color:var(--cyan);
+  }
+  button.primary:hover{background:#3FE6EC;}
+  button.primary:disabled{
+    background:var(--panel-2);
+    color:var(--muted);
+    border-color:var(--line);
+    cursor:not-allowed;
+  }
+  button.ghost{background:transparent;}
+  button.small{padding:5px 9px;font-size:11px;}
+
+  input[type="file"]{
+    font-size:12px;
+    color:var(--muted);
+    width:100%;
+  }
+
+  /* ---------- History table ---------- */
+  table.history{width:100%;border-collapse:collapse;font-size:11px;}
+  table.history th{
+    text-align:left;color:var(--muted);font-weight:500;
+    padding:4px 4px;border-bottom:1px solid var(--line);
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+  }
+  table.history td{padding:2px;}
+  table.history input{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);
+    color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;
+    padding:4px;border-radius:var(--radius);
+  }
+  table.history input:focus{outline:1px solid var(--cyan);}
+  .table-scroll{max-height:220px;overflow-y:auto;margin-bottom:8px;}
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+
+  .field-note{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5;}
+
+  /* ---------- Threat banner ---------- */
+  .threat-banner{
+    padding:14px;
+    border:1px solid var(--line);
+    border-left:3px solid var(--muted);
+    margin-bottom:14px;
+    background:var(--panel-2);
+  }
+  .threat-banner.high{border-left-color:var(--red);}
+  .threat-banner.moderate{border-left-color:var(--amber);}
+  .threat-level{
+    font-family:'JetBrains Mono',monospace;
+    font-size:20px;font-weight:700;letter-spacing:.03em;
+  }
+  .threat-banner.high .threat-level{color:var(--red);}
+  .threat-banner.moderate .threat-level{color:var(--amber);}
+  .threat-sub{color:var(--muted);font-size:12px;margin-top:4px;}
+
+  /* ---------- Forecast matrix ---------- */
+  .horizon-tabs{display:flex;gap:4px;margin-bottom:10px;}
+  .horizon-tabs button{flex:1;padding:6px;font-size:12px;}
+  .horizon-tabs button.active{background:var(--cyan);color:#04181A;border-color:var(--cyan);}
+
+  .matrix{width:100%;border-collapse:collapse;font-size:12px;}
+  .matrix th{
+    text-align:left;color:var(--muted);font-weight:500;font-size:10px;
+    text-transform:uppercase;letter-spacing:.04em;
+    padding:6px 4px;border-bottom:1px solid var(--line);
+  }
+  .matrix td{padding:8px 4px;border-bottom:1px solid var(--line);font-family:'JetBrains Mono',monospace;}
+  .matrix tr:last-child td{border-bottom:none;}
+  .badge{
+    display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .badge.warn{background:rgba(255,71,87,.15);color:var(--red);border:1px solid rgba(255,71,87,.4);}
+  .badge.clear{background:rgba(41,217,224,.1);color:var(--cyan);border:1px solid rgba(41,217,224,.3);}
+
+  /* ---------- Map + charts ---------- */
+  #map{
+    height:420px;
+    border:1px solid var(--line);
+    background:#08111C;
+  }
+  .chart-wrap{height:220px;}
+  canvas{max-width:100%;}
+
+  .stat-row{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid var(--line);}
+  .stat-row:last-child{border-bottom:none;}
+  .stat-row .val{font-family:'JetBrains Mono',monospace;color:var(--cyan);}
+
+  .error-banner{
+    background:rgba(255,71,87,.08);
+    border:1px solid rgba(255,71,87,.4);
+    color:#FFB3B9;
+    padding:10px 12px;
+    font-size:12px;
+    margin-bottom:12px;
+    display:none;
+    line-height:1.5;
+  }
+  .error-banner.show{display:block;}
+
+  footer{
+    padding:10px 24px;
+    border-top:1px solid var(--line);
+    color:var(--muted);
+    font-size:11px;
+    font-family:'JetBrains Mono',monospace;
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:8px;}
+  .legend span{display:flex;align-items:center;gap:5px;}
+  .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}
+
+  /* ---------- WINDY EYE ANIMATION STYLES ---------- */
+  .windy-eye-wrapper {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+  }
+
+  .windy-outer-wave {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 1px dashed rgba(41, 217, 224, 0.5);
+    animation: wind-wave-expand 2.2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+    pointer-events: none;
+  }
+
+  .windy-eye-wrapper.high-threat .windy-outer-wave {
+    border-color: rgba(255, 71, 87, 0.7);
+  }
+
+  .windy-spiral-layer {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    transform-origin: center center;
+  }
+
+  /* Primary fast inward swirl */
+  .windy-spiral-layer.primary {
+    animation: spin-cyclone 1.6s linear infinite;
+  }
+
+  /* Secondary slow counter swirl */
+  .windy-spiral-layer.secondary {
+    animation: spin-cyclone 2.8s linear infinite reverse;
+    opacity: 0.65;
+  }
+
+  .animated-wind-path {
+    stroke-dasharray: 12, 18;
+    animation: wind-flow 0.8s linear infinite;
+  }
+
+  @keyframes spin-cyclone {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(-360deg); }
+  }
+
+  @keyframes wind-wave-expand {
+    0% { transform: scale(0.5); opacity: 0.9; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+
+  @keyframes wind-flow {
+    from { stroke-dashoffset: 30; }
+    to { stroke-dashoffset: 0; }
+  }
+
+  .animated-track-path {
+    stroke-dasharray: 8, 8;
+    animation: dash-flow 1.2s linear infinite;
+  }
+
+  @keyframes dash-flow {
+    from { stroke-dashoffset: 16; }
+    to { stroke-dashoffset: 0; }
+  }
+</style>
+<script>
+/* ---------------------------------------------------------------
+   Multi-CDN fallback loader.
+--------------------------------------------------------------- */
+function loadScriptChain(urls, onDone){
+  let i = 0;
+  function tryNext(){
+    if (i >= urls.length){ onDone(false); return; }
+    const url = urls[i++];
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload = () => onDone(true);
+    s.onerror = () => { console.warn('Failed to load', url, '- trying next source'); tryNext(); };
+    document.head.appendChild(s);
+  }
+  tryNext();
+}
+
+function loadCSSChain(urls){
+  let i = 0;
+  function tryNext(){
+    if (i >= urls.length) return;
+    const url = urls[i++];
+    const l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = url;
+    l.onerror = tryNext;
+    document.head.appendChild(l);
+  }
+  tryNext();
+}
+
+loadCSSChain([
+  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+  'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css',
+]);
+</script>
+</head>
+<body>
+
+<div class="shell">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <div>
+        <h1>Cyclone Prediction Console</h1>
+        <p>Satellite classification (CNN) &middot; track &amp; intensity model (Random Forest) &middot; North Indian Ocean basin</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="clock mono" id="clock">--:--:-- UTC</div>
+      <div class="api-config">
+        <label for="apiUrl">Gateway</label>
+        <input type="text" id="apiUrl" value="http://127.0.0.1:8002/predict-combined" spellcheck="false">
+      </div>
+      <div class="conn-status" id="connStatus"><span class="dot"></span><span id="connText">Not checked</span></div>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- LEFT COLUMN: inputs -->
+    <div class="col">
+      <div class="panel">
+        <h2>Satellite Image</h2>
+        <input type="file" id="imageInput" accept="image/*">
+        <div class="field-note" id="imageFileName">No image selected — required for the classification model.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Storm History <span class="mono" style="color:var(--muted);font-weight:400;">min. 7 steps</span></h2>
+        <div class="table-scroll">
+          <table class="history" id="historyTable">
+            <thead>
+              <tr>
+                <th>Time (UTC)</th><th>Lat</th><th>Lon</th><th>Wind kt</th><th>Pres mb</th><th>Spd</th><th>Dist2Land</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+        <div class="row-actions">
+          <button class="small" id="addRowBtn">+ Add step</button>
+          <button class="small ghost" id="loadSampleBtn">Load sample storm</button>
+        </div>
+        <div class="field-note">Sample storm preloads a real historical track (Oct 1985, Bay of Bengal) for a quick demo run.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Run</h2>
+        <button class="primary" id="runBtn" style="width:100%;">Run prediction (+6h / +12h / +24h)</button>
+        <div class="error-banner" id="errorBanner"></div>
+      </div>
+    </div>
+
+    <!-- CENTER COLUMN: map + trend -->
+    <div class="col">
+      <div class="panel">
+        <h2>Track &amp; Forecast Positions</h2>
+        <div id="map"></div>
+        <div class="legend">
+          <span><i style="background:#4FA8FF;"></i>Observed track</span>
+          <span><i style="background:var(--cyan);"></i>+12h forecast</span>
+          <span><i style="background:var(--amber);"></i>+24h forecast</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Wind &amp; Pressure — Observed + Forecast</h2>
+        <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: status + stats -->
+    <div class="col">
+      <div class="panel">
+        <h2>Threat Status</h2>
+        <div class="threat-banner" id="threatBanner">
+          <div class="threat-level" id="threatLevel">—</div>
+          <div class="threat-sub" id="threatSub">Run a prediction to populate this panel.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Forecast Horizon Matrix</h2>
+        <table class="matrix" id="matrixTable">
+          <thead>
+            <tr><th>Horizon</th><th>Category</th><th>Position</th><th>Intensify</th></tr>
+          </thead>
+          <tbody id="matrixBody">
+            <tr><td colspan="4" style="color:var(--muted);">No data yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>Model Validation<span class="mono" style="color:var(--muted);font-weight:400;">test storms</span></h2>
+        <div class="chart-wrap" style="height:140px;"><canvas id="accuracyChart"></canvas></div>
+        <div class="stat-row"><span>Intensify recall @ +6h</span><span class="val">71.3%</span></div>
+        <div class="stat-row"><span>Intensify recall @ +12h</span><span class="val">68.3%</span></div>
+        <div class="stat-row"><span>Intensify recall @ +24h</span><span class="val">88.1%</span></div>
+        <div class="stat-row"><span>Track MAE @ +12h</span><span class="val">109 km</span></div>
+        <div class="stat-row"><span>Track MAE @ +24h</span><span class="val">184 km</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <span>DATA SOURCES: IMD BEST TRACK / IBTRACS &middot; INSAT-3D IR (MOSDAC) &middot; BASIN: NORTH INDIAN OCEAN</span>
+    <span id="footerStatus">STANDBY</span>
+  </footer>
+
+</div>
+
+<script>
+/* ---------------------------------------------------------------
+   Clock
+--------------------------------------------------------------- */
+function tickClock(){
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toISOString().slice(0,19).replace('T',' ') + ' UTC';
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+/* ---------------------------------------------------------------
+   Sample storm data
+--------------------------------------------------------------- */
+const SAMPLE_HISTORY = [
+  {ISO_TIME:"1985-10-10 18:00:00", LAT:12.8, LON:88.4, WIND_KTS:25, PRES_MB:1004, STORM_SPEED:9, DIST2LAND:395},
+  {ISO_TIME:"1985-10-11 00:00:00", LAT:13.2, LON:87.8, WIND_KTS:25, PRES_MB:1004, STORM_SPEED:9, DIST2LAND:311},
+  {ISO_TIME:"1985-10-11 06:00:00", LAT:13.8, LON:87.2, WIND_KTS:30, PRES_MB:1000, STORM_SPEED:10, DIST2LAND:280},
+  {ISO_TIME:"1985-10-11 12:00:00", LAT:14.4, LON:86.7, WIND_KTS:35, PRES_MB:998, STORM_SPEED:11, DIST2LAND:250},
+  {ISO_TIME:"1985-10-11 18:00:00", LAT:15.1, LON:86.2, WIND_KTS:40, PRES_MB:995, STORM_SPEED:12, DIST2LAND:210},
+  {ISO_TIME:"1985-10-12 00:00:00", LAT:15.9, LON:85.7, WIND_KTS:50, PRES_MB:990, STORM_SPEED:13, DIST2LAND:180},
+  {ISO_TIME:"1985-10-12 06:00:00", LAT:16.6, LON:85.1, WIND_KTS:55, PRES_MB:987, STORM_SPEED:13, DIST2LAND:150},
+];
+
+const COLS = ["ISO_TIME","LAT","LON","WIND_KTS","PRES_MB","STORM_SPEED","DIST2LAND"];
+
+function addRow(data){
+  const tbody = document.getElementById('historyBody');
+  const tr = document.createElement('tr');
+  COLS.forEach(col=>{
+    const td = document.createElement('td');
+    const input = document.createElement('input');
+    input.value = data ? data[col] : (col === "ISO_TIME" ? "" : "");
+    input.dataset.col = col;
+    td.appendChild(input);
+    tr.appendChild(td);
+  });
+  const tdBtn = document.createElement('td');
+  const delBtn = document.createElement('button');
+  delBtn.textContent = "×";
+  delBtn.className = "small ghost";
+  delBtn.onclick = () => tr.remove();
+  tdBtn.appendChild(delBtn);
+  tr.appendChild(tdBtn);
+  tbody.appendChild(tr);
+}
+
+function loadSample(){
+  document.getElementById('historyBody').innerHTML = "";
+  SAMPLE_HISTORY.forEach(addRow);
+}
+
+function readHistory(){
+  const rows = [...document.querySelectorAll('#historyBody tr')];
+  return rows.map(tr=>{
+    const obj = {};
+    tr.querySelectorAll('input').forEach(inp=>{
+      const col = inp.dataset.col;
+      obj[col] = (col === "ISO_TIME") ? inp.value : parseFloat(inp.value);
+    });
+    return obj;
+  });
+}
+
+document.getElementById('addRowBtn').onclick = () => addRow(null);
+document.getElementById('loadSampleBtn').onclick = loadSample;
+loadSample();
+
+document.getElementById('imageInput').addEventListener('change', (e)=>{
+  const f = e.target.files[0];
+  document.getElementById('imageFileName').textContent = f ? f.name : "No image selected — required for the classification model.";
+});
+
+/* ---------------------------------------------------------------
+   Map setup & Windy Storm Eye logic
+--------------------------------------------------------------- */
+let map = null;
+let mapReady = false;
+let leafletLoaded = false;
+let mapLayers = [];
+let animationTimer = null;
+
+function initMap(){
+  if (typeof L === 'undefined'){
+    document.getElementById('map').innerHTML =
+      '<div style="padding:16px;color:var(--muted);font-size:12px;">Map library failed to load from CDN. Check your internet connection and reload — the rest of the dashboard still works.</div>';
+    return;
+  }
+  try{
+    map = L.map('map', {zoomControl:true}).setView([12, 88], 5);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+      maxZoom: 18,
+    }).addTo(map);
+    mapReady = true;
+    setTimeout(() => map.invalidateSize(), 200);
+  }catch(e){
+    console.error('Map init failed:', e);
+    document.getElementById('map').innerHTML =
+      '<div style="padding:16px;color:var(--muted);font-size:12px;">Map failed to initialize. The rest of the dashboard still works.</div>';
+  }
+}
+
+function clearMapLayers(){
+  if (!mapReady) return;
+  if (animationTimer) clearInterval(animationTimer);
+  mapLayers.forEach(l => map.removeLayer(l));
+  mapLayers = [];
+}
+
+function createStormEyeIcon(isHighThreat = false) {
+  const color = isHighThreat ? '#FF4757' : '#29D9E0';
+  const svgContent = `
+    <div class="windy-eye-wrapper ${isHighThreat ? 'high-threat' : ''}">
+      <div class="windy-outer-wave"></div>
+      
+      <!-- Primary Swirling Wind Feeder Streams -->
+      <svg class="windy-spiral-layer primary" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <path class="animated-wind-path" d="M 50,10 A 40,40 0 0,0 10,50" stroke="${color}" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <path class="animated-wind-path" d="M 50,90 A 40,40 0 0,0 90,50" stroke="${color}" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <path class="animated-wind-path" d="M 10,50 A 40,40 0 0,0 50,90" stroke="${color}" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <path class="animated-wind-path" d="M 90,50 A 40,40 0 0,0 50,10" stroke="${color}" stroke-width="3" stroke-linecap="round" fill="none"/>
+      </svg>
+
+      <!-- Inner High-Velocity Vortex Core -->
+      <svg class="windy-spiral-layer secondary" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="16" fill="url(#eyeGlow)" opacity="0.4"/>
+        <path d="M 50 20 C 35 32, 28 44, 32 50 C 36 58, 48 50, 50 50" stroke="${color}" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <path d="M 50 80 C 65 68, 72 56, 68 50 C 64 42, 52 50, 50 50" stroke="${color}" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <path d="M 20 50 C 32 65, 44 72, 50 68 C 58 64, 50 52, 50 50" stroke="${color}" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <path d="M 80 50 C 68 35, 56 28, 50 32 C 42 36, 50 48, 50 50" stroke="${color}" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <circle cx="50" cy="50" r="5" fill="#060B14"/>
+        
+        <defs>
+          <radialGradient id="eyeGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="${color}" stop-opacity="1"/>
+            <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+      </svg>
+    </div>
+  `;
+  return L.divIcon({
+    html: svgContent,
+    className: '',
+    iconSize: [60, 60],
+    iconAnchor: [30, 30]
+  });
+}
+
+const HORIZON_MAE_KM = { "+12h": 109, "+24h": 184 };
+
+function plotResults(history, results){
+  if (!mapReady) return;
+  clearMapLayers();
+
+  const sequence = history.map(h => ({
+    lat: h.LAT,
+    lon: h.LON,
+    label: `Observed: ${h.ISO_TIME}<br>Wind: ${h.WIND_KTS} kt &middot; Pres: ${h.PRES_MB} mb`,
+    isForecast: false
+  }));
+
+  const horizons = ["+6h", "+12h", "+24h"];
+  horizons.forEach(h => {
+    if (results[h] && results[h].numerical_prediction.predicted_lat != null) {
+      const num = results[h].numerical_prediction;
+      sequence.push({
+        lat: num.predicted_lat,
+        lon: num.predicted_lon,
+        horizon: h,
+        label: `<b>${h} Forecast</b><br>Category: ${num.category}<br>Lat/Lon: ${num.predicted_lat.toFixed(2)}, ${num.predicted_lon.toFixed(2)}<br>Intensification: ${num.intensification_warning ? 'WARNING' : 'clear'} (${(num.intensification_probability*100).toFixed(1)}%)`,
+        isForecast: true,
+        threat: num.intensification_warning
+      });
+    }
+  });
+
+  if (sequence.length === 0) return;
+
+  const trackPath = L.polyline([], {
+    color: '#29D9E0',
+    weight: 3,
+    opacity: 0.9,
+    className: 'animated-track-path'
+  }).addTo(map);
+  mapLayers.push(trackPath);
+
+  const activeEyeMarker = L.marker([sequence[0].lat, sequence[0].lon], {
+    icon: createStormEyeIcon(false),
+    zIndexOffset: 1000
+  }).addTo(map);
+  mapLayers.push(activeEyeMarker);
+
+  let step = 0;
+
+  animationTimer = setInterval(() => {
+    if (step < sequence.length) {
+      const current = sequence[step];
+      const point = [current.lat, current.lon];
+
+      trackPath.addLatLng(point);
+      activeEyeMarker.setLatLng(point);
+      activeEyeMarker.setIcon(createStormEyeIcon(current.isForecast && current.threat));
+
+      const nodeMarker = L.circleMarker(point, {
+        radius: current.isForecast ? 5 : 3,
+        color: current.isForecast ? '#FF9F40' : '#4FA8FF',
+        fillColor: current.isForecast ? '#FF9F40' : '#4FA8FF',
+        fillOpacity: 0.8
+      }).bindPopup(current.label).addTo(map);
+      
+      mapLayers.push(nodeMarker);
+
+      if (current.isForecast && HORIZON_MAE_KM[current.horizon]) {
+        const circle = L.circle(point, {
+          radius: HORIZON_MAE_KM[current.horizon] * 1000,
+          color: '#FF9F40',
+          fillColor: '#FF9F40',
+          fillOpacity: .05,
+          weight: 1,
+          dashArray: '2,4'
+        }).addTo(map);
+        mapLayers.push(circle);
+      }
+
+      step++;
+    } else {
+      clearInterval(animationTimer);
+    }
+  }, 400);
+
+  const allBounds = sequence.map(s => [s.lat, s.lon]);
+  map.fitBounds(allBounds, { padding: [40, 40] });
+}
+
+/* ---------------------------------------------------------------
+   Charts
+--------------------------------------------------------------- */
+let trendChart, accuracyChart;
+let chartsAvailable = false;
+
+function renderTrendChart(history, results){
+  if (!chartsAvailable) return;
+  if (trendChart) trendChart.destroy();
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  trendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: history.map(h => h.ISO_TIME.slice(5,16)),
+      datasets: [
+        {
+          label: 'Wind (kt)',
+          data: history.map(h => h.WIND_KTS),
+          borderColor: '#29D9E0',
+          backgroundColor: 'transparent',
+          yAxisID: 'y',
+          tension: .3,
+        },
+        {
+          label: 'Pressure (mb)',
+          data: history.map(h => h.PRES_MB),
+          borderColor: '#FF9F40',
+          backgroundColor: 'transparent',
+          yAxisID: 'y1',
+          tension: .3,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {mode:'index', intersect:false},
+      plugins: {
+        legend: {labels: {color:'#E7F1F5', font:{family:"'JetBrains Mono'", size:10}}},
+      },
+      scales: {
+        x: {ticks:{color:'#6B8A9A', font:{size:9}}, grid:{color:'#1B3145'}},
+        y: {position:'left', ticks:{color:'#29D9E0', font:{size:9}}, grid:{color:'#1B3145'}, title:{display:true,text:'kt',color:'#6B8A9A'}},
+        y1:{position:'right', ticks:{color:'#FF9F40', font:{size:9}}, grid:{display:false}, title:{display:true,text:'mb',color:'#6B8A9A'}},
+      }
+    }
+  });
+}
+
+function renderAccuracyChart(){
+  if (!chartsAvailable) return;
+  if (accuracyChart) return;
+  const ctx = document.getElementById('accuracyChart').getContext('2d');
+  accuracyChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['+6h','+12h','+24h'],
+      datasets: [{
+        label: 'Balanced accuracy',
+        data: [0.883, 0.816, 0.659],
+        backgroundColor: ['#29D9E0','#29D9E0','#FF9F40'],
+      }]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#6B8A9A', font:{family:"'JetBrains Mono'", size:10}}, grid:{display:false}},
+        y:{min:0, max:1, ticks:{color:'#6B8A9A', font:{size:9}}, grid:{color:'#1B3145'}},
+      }
+    }
+  });
+}
+
+/* ---------------------------------------------------------------
+   Forecast matrix + threat banner
+--------------------------------------------------------------- */
+function renderMatrix(results){
+  const tbody = document.getElementById('matrixBody');
+  tbody.innerHTML = '';
+  ["+6h","+12h","+24h"].forEach(h=>{
+    if (!results[h]) return;
+    const num = results[h].numerical_prediction;
+    const tr = document.createElement('tr');
+    const posText = (num.predicted_lat != null)
+      ? `${num.predicted_lat.toFixed(2)}, ${num.predicted_lon.toFixed(2)}`
+      : '—';
+    const badge = num.intensification_warning
+      ? `<span class="badge warn">WARN ${(num.intensification_probability*100).toFixed(0)}%</span>`
+      : `<span class="badge clear">clear ${(num.intensification_probability*100).toFixed(0)}%</span>`;
+    tr.innerHTML = `<td>${h}</td><td>${num.category}</td><td>${posText}</td><td>${badge}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderThreatBanner(anyResult){
+  const num = anyResult.numerical_prediction;
+  const img = anyResult.image_classification;
+  const level = anyResult.summary.overall_threat_level;
+  const banner = document.getElementById('threatBanner');
+  banner.className = 'threat-banner ' + (level === 'HIGH' ? 'high' : 'moderate');
+  document.getElementById('threatLevel').textContent = level;
+  document.getElementById('threatSub').innerHTML =
+    `Visual: <b>${img.prediction}</b> (${(img.confidence*100).toFixed(1)}%) &middot; Numerical: <b>${num.category}</b>`;
+}
+
+/* ---------------------------------------------------------------
+   Gateway calls
+--------------------------------------------------------------- */
+function showError(msg){
+  const el = document.getElementById('errorBanner');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function clearError(){
+  document.getElementById('errorBanner').classList.remove('show');
+}
+
+async function checkConnection(){
+  const statusEl = document.getElementById('connStatus');
+  const textEl = document.getElementById('connText');
+  const base = document.getElementById('apiUrl').value.replace('/predict-combined','');
+  try{
+    const res = await fetch(base + '/docs', {method:'GET'});
+    if (res.ok){
+      statusEl.className = 'conn-status ok';
+      textEl.textContent = 'Gateway reachable';
+    } else {
+      throw new Error('bad status');
+    }
+  }catch(e){
+    statusEl.className = 'conn-status bad';
+    textEl.textContent = 'Gateway unreachable';
+  }
+}
+checkConnection();
+document.getElementById('apiUrl').addEventListener('change', checkConnection);
+
+async function callGateway(imageFile, history, horizon){
+  const url = document.getElementById('apiUrl').value;
+  const form = new FormData();
+  form.append('file', imageFile);
+  form.append('numeric_json', JSON.stringify({horizon, history}));
+
+  const res = await fetch(url, {method:'POST', body: form});
+  if (!res.ok){
+    const text = await res.text();
+    throw new Error(`Gateway returned ${res.status}: ${text.slice(0,200)}`);
+  }
+  return res.json();
+}
+
+document.getElementById('runBtn').addEventListener('click', async ()=>{
+  clearError();
+  const imageInput = document.getElementById('imageInput');
+  const imageFile = imageInput.files[0];
+  const history = readHistory();
+
+  if (!imageFile){
+    showError('Select a satellite image before running a prediction — the gateway requires one for the classification model.');
+    return;
+  }
+  if (history.length < 7){
+    showError(`Storm history needs at least 7 timesteps to compute trend features (currently ${history.length}). Add more rows or load the sample storm.`);
+    return;
+  }
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = 'Running...';
+  document.getElementById('footerStatus').textContent = 'RUNNING';
+
+  try{
+    const horizons = ["+6h","+12h","+24h"];
+    const results = {};
+    for (const h of horizons){
+      results[h] = await callGateway(imageFile, history, h);
+    }
+
+    plotResults(history, results);
+    renderTrendChart(history, results);
+    renderMatrix(results);
+    renderThreatBanner(results["+24h"]);
+    document.getElementById('footerStatus').textContent = 'PREDICTION COMPLETE';
+  }catch(err){
+    showError(`Prediction failed: ${err.message}. Confirm the gateway URL is correct and both underlying services are running.`);
+    document.getElementById('footerStatus').textContent = 'ERROR';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'Run prediction (+6h / +12h / +24h)';
+  }
+});
+
+/* ---------------------------------------------------------------
+   CDN Chain Loader Execution
+--------------------------------------------------------------- */
+loadScriptChain([
+  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+  'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js',
+], (ok) => {
+  leafletLoaded = ok;
+  initMap();
+});
+
+loadScriptChain([
+  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js',
+  'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
+  'https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js',
+], (ok) => {
+  chartsAvailable = ok;
+  if (!ok) console.error('Chart.js failed to load from every CDN tried — chart panel will stay empty.');
+  renderAccuracyChart();
+});
+</script>
+
+</body>
+</html>
