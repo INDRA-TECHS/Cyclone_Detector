@@ -8,7 +8,8 @@ import uvicorn
 from pathlib import Path
 
 app = FastAPI()
-
+print("Current folder:", BASE_DIR)
+print("Files here:", os.listdir(BASE_DIR))
 # Correct model path
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "cyclone_resnet18_best.pth"
