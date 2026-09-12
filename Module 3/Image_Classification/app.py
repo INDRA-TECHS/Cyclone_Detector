@@ -14,7 +14,7 @@ BASE_DIR = Path(__file__).resolve().parent
 print("Current folder:", BASE_DIR)
 print("Files here:", os.listdir(BASE_DIR))
 
-MODEL_PATH = BASE_DIR / "Cyclone_resnet18_best.pth"
+MODEL_PATH = BASE_DIR / "cyclone_resnet18_best.pth"
 
 model, class_names, device = load_trained_model(str(MODEL_PATH))
 
